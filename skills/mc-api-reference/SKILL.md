@@ -178,20 +178,6 @@ import { registerEditorExtension } from '@minecraft/server-editor';
 
 > `3.0.0-alpha` + `product_type: "addon"` 的组合可以确保 **不会禁用游戏的成就系统**。
 
-**alpha 模块的硬性要求**：
-- 游戏版本必须 **≥ 1.26.50**（`min_engine_version` 至少为 `[1, 26, 50]`）
-- 清单中必须声明 `"metadata": { "product_type": "addon" }`
-
-#### 成就兼容性速查
-
-| 模块版本策略 | 是否兼容成就 | 额外条件 |
-|-------------|-------------|---------|
-| 正式版（如 `"1.16.0"`） | ✅ 兼容 | 无 |
-| `"beta"` | ⚠️ 取决于具体 beta 版本 | 预览版模块可能禁用成就 |
-| `"3.0.0-alpha"` | ✅ 兼容 | 游戏版本 ≥ 1.26.50 + 声明 `product_type: "addon"` |
-
-> **核心规则**：要兼容成就，模块必须满足 **正式版** 或 **3.0.0-alpha** 版本。若使用 alpha 模块，还需满足游戏版本 ≥ 1.26.50 且在清单中声明 `"metadata": { "product_type": "addon" }`。
-
 #### beta 的优势
 
 ```json

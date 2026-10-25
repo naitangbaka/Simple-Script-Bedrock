@@ -1,11 +1,11 @@
 ---
 name: "fullstack-dev"
-description: "基岩版脚本开发架构规范。覆盖脚本架构、事件系统、数据持久化、模块组织。Invoke when setting up script architecture, organizing modules, or needing project structure guidelines."
+description: "基岩版addon开发架构规范。覆盖行为包/资源包结构、脚本架构、事件系统、数据持久化、模块组织。Invoke when setting up addon architecture, organizing scripts/modules, or needing project structure guidelines."
 ---
 
-# 基岩版 脚本开发架构规范
+# 基岩版 Addon 开发架构规范
 
-> 适用于我的世界基岩版脚本开发（@minecraft/server 等官方模块）。默认当前目录即为行为包根目录。
+> 适用于我的世界基岩版 Addon 开发（行为包 + 资源包 + 脚本模块）。
 
 ---
 
@@ -42,7 +42,69 @@ player.runCommand(`give @s diamond 64`);
 
 ## Addon 项目结构
 
-> 本文档默认当前目录即为行为包根目录。`src/` 存放 TypeScript 源码，`scripts/` 存放编译后的 JS 文件。`manifest.json` 中 `script` 模块的 `entry` 指向 `scripts/main.js`。`.gitignore` 应忽略 `scripts/` 目录。
+### 标准目录布局
+
+```
+project-root/
+├── behavior_pack/                 # 行为包 (BP)
+│   ├── manifest.json              # 行为包清单
+│   ├── pack_icon.png              # 行为包图标
+│   ├── src/                       # 源码目录 (TypeScript)
+│   │   ├── main.ts                # 脚本入口
+│   │   ├── types/                 # 类型定义
+│   │   │   ├── index.ts
+│   │   │   └── ...
+│   │   ├── core/                  # 核心系统
+│   │   │   ├── event-handler.ts   # 事件处理器
+│   │   │   └── tick-scheduler.ts  # Tick 调度器
+│   │   ├── systems/               # 功能系统
+│   │   │   ├── custom-blocks.ts
+│   │   │   ├── custom-items.ts
+│   │   │   └── custom-recipes.ts
+│   │   ├── managers/              # 管理器
+│   │   │   ├── block-manager.ts
+│   │   │   └── data-manager.ts
+│   │   └── utils/                 # 工具函数
+│   │       ├── math-utils.ts
+│   │       └── format-utils.ts
+│   ├── scripts/                   # 编译输出 (JS) — 游戏加载目录
+│   │   ├── main.js                # ← 编译自 src/main.ts
+│   │   ├── types/
+│   │   ├── core/
+│   │   ├── systems/
+│   │   ├── managers/
+│   │   └── utils/
+│   ├── entities/                  # 实体定义
+│   ├── blocks/                    # 方块定义
+│   ├── items/                     # 物品定义
+│   ├── recipes/                   # 合成配方
+│   ├── loot_tables/               # 战利品表
+│   ├── trading/                   # 交易表
+│   ├── spawn_rules/               # 生成规则
+│   ├── feature_rules/             # 特征规则
+│   ├── features/                  # 特征
+│   ├── biome/                     # 生物群系
+│   ├── textures/                  # 纹理
+│   │   └── item_texture.json      # 物品纹理映射
+│   └── texts/                     # 语言文件
+│       └── zh_CN.lang
+├── resource_pack/                 # 资源包 (RP)
+│   ├── manifest.json              # 资源包清单
+│   ├── pack_icon.png
+│   ├── textures/                  # 材质贴图
+│   ├── sounds/                    # 音效
+│   ├── models/                    # 模型
+│   ├── animations/                # 动画
+│   ├── render_controllers/        # 渲染控制器
+│   ├── attachables/               # 附着物
+│   ├── entity/                    # 实体客户端定义
+│   └── texts/                     # 语言文件
+├── tsconfig.json                  # TypeScript 配置
+├── .gitignore
+└── README.md
+```
+
+> **源码与编译分离**：`src/` 存放 TypeScript 源码，`scripts/` 存放编译后的 JS 文件。`manifest.json` 中 `script` 模块的 `entry` 指向 `scripts/main.js`。`.gitignore` 应忽略 `scripts/` 目录。
 
 ### 脚本入口 (main.ts) 规范
 
@@ -261,7 +323,44 @@ system.runInterval(() => {
 
 ---
 
+## 模块组织原则
+
+```
+按功能域分组，不按文件类型分组
+
+✅ 正确:
+systems/
+├── blocks/
+│   ├── block-registry.ts
+│   ├── block-handler.ts
+│   └── block-behaviors.ts
+├── items/
+│   ├── item-registry.ts
+│   └── item-handler.ts
+
+❌ 错误:
+systems/
+├── all-registries.ts
+├── all-handlers.ts
+```
+
+---
+
 ## 部署与打包
+
+### Addon 打包规范
+
+```
+addon-name.mcaddon (合并包)
+├── addon-name-bp.mcpack     # 行为包
+│   └── (行为包内容)
+└── addon-name-rp.mcpack     # 资源包
+    └── (资源包内容)
+```
+
+- `.mcaddon` = 行为包 + 资源包 的打包（可选，方便分发）
+- `.mcpack` = 单独的包（导入时分别导入 BP 和 RP）
+- 脚本编译后输出到 `behavior_pack/scripts/`
 
 ### manifest.json 要点
 
@@ -323,6 +422,8 @@ system.runInterval(() => {
 - [ ] manifest.json 版本号正确
 - [ ] 所有 UUID 唯一且固定
 - [ ] 脚本编译无错误
+- [ ] 语言文件完整
+- [ ] 添加 pack_icon.png
 
 ---
 

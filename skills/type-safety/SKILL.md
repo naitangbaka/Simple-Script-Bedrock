@@ -79,9 +79,7 @@ function registerCustomBlock(config: CustomBlockConfig): void {
     "target": "ES2020",
     "module": "ES2020",
     "lib": ["ES2020","dom"],
-    "moduleResolution": "node",
-    
-    // 严格类型检查
+    "moduleResolution": "bundler",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -90,97 +88,23 @@ function registerCustomBlock(config: CustomBlockConfig): void {
     "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-    
-    // 额外检查
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    
-    // 模块解析
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": false,
-    "sourceMap": false,
-
-    // 输出
+    "declaration": true,
+    "sourceMap": true,
     "outDir": "./scripts",
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "scripts"]
 }
-```
-
-> **关键配置说明**：
-> - `"declaration": false` — **不生成 `.d.ts` 声明文件**。MC 游戏引擎不需要类型声明，生成它们只会污染 scripts 输出目录。
-> - `"sourceMap": false` — **不生成 `.js.map` 文件**。游戏沙箱不加载 source map，保留它们只会让目录杂乱。
-> - `"outDir": "./scripts"` — 编译输出直接到行为包的 scripts 目录，由 manifest.json 的 `entry` 指向。
-
----
-
-## package.json 构建规范
-
-> 默认构建配置应保持输出目录干净，不生成冗余文件。
-
-### 标准配置
-
-```json
-{
-  "name": "addon-name",
-  "version": "1.0.0",
-  "description": "Addon 描述",
-  "main": "scripts/main.js",
-  "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "typecheck:watch": "tsc --noEmit --watch"
-  },
-  "dependencies": {
-    "@minecraft/server": "^2.10.0",
-    "@minecraft/server-ui": "^2.2.0"
-  }
-}
-```
-
-### 规范说明
-
-| 字段 | 要求 | 说明 |
-|------|------|------|
-| `main` | 指向编译入口 `"scripts/main.js"` | 与 manifest.json 中 script module 的 entry 一致 |
-| `build` | `"tsc"` | 调用 tsconfig.json 的编译配置，默认不生成 d.ts 和 map |
-| `typecheck` | `"tsc --noEmit"` | 仅做类型检查，不产出任何文件 |
-| `dependencies` | 仅含 `@minecraft/*` 官方模块 | 禁止非官方 npm 包 |
-
-### 目录清洁原则
-
-```bash
-# ✅ 干净的 scripts 目录（只有 .js 文件）
-scripts/
-├── main.js
-├── types/
-│   ├── index.js
-│   └── ...
-├── core/
-│   ├── event-handler.js
-│   └── ...
-└── systems/
-    ├── custom-blocks.js
-    └── ...
-
-# ❌ 杂乱：多余的 d.ts 和 map 文件
-scripts/
-├── main.js
-├── main.d.ts          # ← 无用，游戏引擎不加载
-├── main.js.map        # ← 无用，沙箱不支持 source map
-├── types/
-│   ├── index.js
-│   ├── index.d.ts      # ← 污染目录
-│   ├── index.js.map    # ← 污染目录
-│   └── ...
 ```
 
 ---
@@ -236,6 +160,25 @@ interface PlayerJoinEventData {
 ```
 
 ---
+
+## 类型目录组织
+
+```
+src/
+├── types/
+│   ├── index.ts           # 统一导出
+│   ├── blocks.ts          # 方块相关类型
+│   ├── items.ts           # 物品相关类型
+│   ├── entities.ts        # 实体相关类型
+│   ├── events.ts          # 游戏事件类型
+│   ├── ui.ts              # UI 相关类型
+│   └── config.ts          # 配置相关类型
+├── scripts/               # 游戏脚本
+│   ├── main.ts
+│   └── ...
+└── tests/                 # GameTest 测试
+    └── ...
+```
 
 ### 类型导出规范
 
@@ -319,63 +262,6 @@ type Nullable<T> = T | null;
 type AsyncResult<T> = Promise<{ success: boolean; data?: T; error?: string }>;
 type EventHandler<T = void> = T extends void ? () => void : (data: T) => void;
 ```
-
----
-
-## instanceof vs typeId 类型判断
-
-> 在校验 Minecraft 实体/玩家等对象类型时，**优先使用 `instanceof` 而非字符串 `typeId` 比较**。
-
-### 规则
-
-| 方式 | 推荐度 | 说明 |
-|------|--------|------|
-| `instanceof Player` | ✅ 优先 | 类型安全，TypeScript 自动收窄类型，不依赖字符串 |
-| `entity.typeId === 'minecraft:player'` | ⚠️ 仅在必要时 | 字符串可能拼错，无类型收窄，且需确认 typeId 准确值 |
-
-### 示例
-
-```typescript
-import { world, Player, Entity } from '@minecraft/server';
-
-// ✅ 推荐：使用 instanceof 判断玩家
-world.afterEvents.entityDie.subscribe((event) => {
-  const source = event.damageSource.damagingEntity;
-
-  if (source instanceof Player) {
-    // TypeScript 已自动收窄 source 为 Player 类型
-    source.sendMessage('击杀了目标');
-    source.addExperience(10);
-    const inventory = source.getComponent('inventory'); // 只有 Player 有的方法可直接用
-  }
-});
-
-// ❌ 不推荐：用 typeId 字符串比较
-world.afterEvents.entityDie.subscribe((event) => {
-  const source = event.damageSource.damagingEntity;
-
-  if (source?.typeId === 'minecraft:player') {
-    // TypeScript 不知道 source 是 Player，需要手动类型断言
-    const player = source as Player;
-    player.sendMessage('击杀了目标');
-  }
-});
-
-// ✅ 对非玩家的实体判断（无专用类时用 typeId）
-world.afterEvents.entityDie.subscribe((event) => {
-  const deadEntity = event.deadEntity;
-
-  // 对特定实体类型判断 — 只能用 typeId，因为没有 Creeper、Zombie 等专用类
-  if (deadEntity.typeId === 'minecraft:creeper') {
-    // 苦力怕死亡特殊处理
-  }
-});
-```
-
-**总结**：
-- `Player` 有专用类 → 用 `instanceof Player`
-- 其他实体（Creeper、Zombie、Skeleton 等）没有专用类 → 用 `typeId` 字符串比较
-- 自定义实体 → 用 `typeId` 或 `hasTag()` 判断
 
 ---
 
